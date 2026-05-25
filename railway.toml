@@ -1,0 +1,16 @@
+# =============================================================================
+# BARREL-GUARD AI — Foreign Object Detection Platform
+# Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
+# Unauthorized copying, modification, or distribution is strictly prohibited.
+# =============================================================================
+
+[build]
+builder = "nixpacks"
+buildCommand = "cd backend && pip install -r requirements.txt"
+
+[deploy]
+startCommand = "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+healthcheckPath = "/health"
+healthcheckTimeout = 30

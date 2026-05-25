@@ -1,0 +1,44 @@
+# =============================================================================
+# BARREL-GUARD AI — Foreign Object Detection Platform
+# Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
+# Unauthorized copying, modification, or distribution is strictly prohibited.
+# =============================================================================
+
+# Core Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy==2.0.23
+aiosqlite==0.19.0
+asyncpg==0.29.0
+alembic==1.12.1
+
+# Async HTTP
+httpx==0.25.2
+aiofiles==23.2.1
+
+# WebSockets
+websockets==12.0
+
+# Data Validation
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Date & Time
+python-dateutil==2.8.2
+
+# Environment
+python-dotenv==1.0.0
+
+# Simulation & Math
+numpy==1.26.2
+Pillow==10.1.0
+
+# Notifications
+aiosmtplib==3.0.1
+jinja2==3.1.2
+
+# Utilities
+loguru==0.7.2
