@@ -1,7 +1,9 @@
-/*
- * BARREL-GUARD AI — Foreign Object Detection Platform
- * Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
- */
+// =============================================================
+// BARREL-GUARD AI — Foreign Object Detection Platform
+// Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
+// Unauthorized copying, modification, or distribution is
+// strictly prohibited without explicit written permission.
+// =============================================================
 
 import { useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store/useStore'
@@ -10,7 +12,9 @@ const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000'
 
 export const useWebSocket = () => {
   const wsRef = useRef<WebSocket | null>(null)
-  const { addDetection, addNotification, updatePLCStatus } = useStore()
+  const addDetection = useStore((state) => state.addDetection)
+  const addNotification = useStore((state) => state.addNotification)
+  const setPLCStatus = useStore((state) => state.setPLCStatus)
 
   const connect = useCallback(() => {
     const clientId = `client-${Date.now()}`
@@ -23,16 +27,30 @@ export const useWebSocket = () => {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
-        if (data.type === 'new_detection') addDetection(data.payload)
-        if (data.type === 'notification') addNotification(data.payload)
-        if (data.type === 'plc_status') updatePLCStatus(data.payload)
+
+        if (data.type === 'new_detection') {
+          addDetection(data.payload)
+        }
+
+        if (data.type === 'notification') {
+          addNotification(data.payload)
+        }
+
+        if (
+          data.type === 'plc_status' ||
+          data.type === 'plc_stop' ||
+          data.type === 'plc_resume'
+        ) {
+          setPLCStatus(data.payload)
+        }
+
       } catch (e) {
-        console.error('WS parse error', e)
+        console.error('❌ WS parse error', e)
       }
     }
 
     ws.onclose = () => {
-      console.log('🔄 WebSocket disconnected, reconnecting...')
+      console.log('🔄 WebSocket disconnected — reconnecting in 3s...')
       setTimeout(connect, 3000)
     }
 
@@ -42,7 +60,7 @@ export const useWebSocket = () => {
     }
 
     wsRef.current = ws
-  }, [addDetection, addNotification, updatePLCStatus])
+  }, [addDetection, addNotification, setPLCStatus])
 
   useEffect(() => {
     connect()
