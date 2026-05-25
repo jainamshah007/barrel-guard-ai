@@ -1,38 +1,55 @@
- 
-// =============================================================
-// BARREL-GUARD AI — Foreign Object Detection Platform
-// Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
-// =============================================================
+/*
+ * BARREL-GUARD AI — Foreign Object Detection Platform
+ * Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
+ */
 
-import { useEffect } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store/useStore'
 
-export function useWebSocket() {
-  const { addDetection, addNotification, setPLCStatus } = useStore()
+const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000'
 
-  useEffect(() => {
+export const useWebSocket = () => {
+  const wsRef = useRef<WebSocket | null>(null)
+  const { addDetection, addNotification, updatePLCStatus } = useStore()
+
+  const connect = useCallback(() => {
     const clientId = `client-${Date.now()}`
-    const wsUrl = `ws://${window.location.hostname}:8000/ws/${clientId}`
-    const ws = new WebSocket(wsUrl)
+    const ws = new WebSocket(`${WS_URL}/ws/${clientId}`)
 
-    ws.onopen = () => console.log('WebSocket connected')
+    ws.onopen = () => {
+      console.log('✅ WebSocket connected')
+    }
 
     ws.onmessage = (event) => {
       try {
-        const msg = JSON.parse(event.data)
-        if (msg.type === 'new_detection')  addDetection(msg.data)
-        if (msg.type === 'notification')   addNotification(msg.data)
-        if (msg.type === 'plc_status')     setPLCStatus(msg.data)
-        if (msg.type === 'plc_stop')       setPLCStatus(msg.data)
-        if (msg.type === 'plc_resume')     setPLCStatus(msg.data)
+        const data = JSON.parse(event.data)
+        if (data.type === 'new_detection') addDetection(data.payload)
+        if (data.type === 'notification') addNotification(data.payload)
+        if (data.type === 'plc_status') updatePLCStatus(data.payload)
       } catch (e) {
         console.error('WS parse error', e)
       }
     }
 
-    ws.onerror = (e) => console.error('WebSocket error', e)
-    ws.onclose = () => console.log('WebSocket disconnected')
+    ws.onclose = () => {
+      console.log('🔄 WebSocket disconnected, reconnecting...')
+      setTimeout(connect, 3000)
+    }
 
-    return () => ws.close()
-  }, [])
+    ws.onerror = (error) => {
+      console.error('❌ WebSocket error', error)
+      ws.close()
+    }
+
+    wsRef.current = ws
+  }, [addDetection, addNotification, updatePLCStatus])
+
+  useEffect(() => {
+    connect()
+    return () => {
+      wsRef.current?.close()
+    }
+  }, [connect])
+
+  return wsRef
 }
