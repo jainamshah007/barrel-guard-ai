@@ -1,69 +1,57 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
-from app.models.database import (
-    ConveyorStopEvent, get_db
-)
-from app.services.plc_controller import plc_controller
-from app.schemas.schemas import PLCCommand
-from app.websockets.manager import manager
-from datetime import datetime
+# ==============================================================================
+# BARREL-GUARD AI — Foreign Object Detection Platform
+# Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
+# Unauthorized copying, modification, or distribution is strictly prohibited.
+# ==============================================================================
 
-router = APIRouter()
+from fastapi import APIRouter, HTTPException
+from app.services.plc_controller import plc_controller
+
+router = APIRouter(prefix="/plc", tags=["PLC Control"])
 
 
 @router.get("/status")
-async def get_status():
-    return plc_controller.get_status()
+async def get_all_plc_status():
+    return {
+        "lines": plc_controller.get_all_status()
+    }
 
 
-@router.post("/stop")
-async def stop_line(body: PLCCommand):
-    result = plc_controller.send_stop(body.line_id)
-    await manager.broadcast({
-        "type": "plc_update",
-        "line_id": body.line_id,
-        "status": "STOPPED",
-        "operator": body.operator,
-        "timestamp": datetime.utcnow().isoformat()
-    })
-    return result
+@router.get("/status/{line_id}")
+async def get_line_status(line_id: int):
+    status = plc_controller.get_line_status(line_id)
+    if status is None:
+        raise HTTPException(status_code=404, detail=f"Line {line_id} not found")
+    return status
 
 
-@router.post("/resume")
-async def resume_line(body: PLCCommand):
-    result = plc_controller.send_resume(
-        body.line_id, body.operator
-    )
-    await manager.broadcast({
-        "type": "plc_update",
-        "line_id": body.line_id,
-        "status": "RUNNING",
-        "operator": body.operator,
-        "timestamp": datetime.utcnow().isoformat()
-    })
-    return result
+@router.post("/stop/{line_id}")
+async def stop_line(line_id: int, reason: str = "Manual stop"):
+    result = await plc_controller.stop_line(line_id=line_id, reason=reason)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return {"message": f"Line {line_id} stopped", "status": result}
 
 
-@router.get("/relay-logs")
-async def get_relay_logs(
-    limit: int = 20,
-    db: AsyncSession = Depends(get_db)
-):
-    result = await db.execute(
-        select(ConveyorStopEvent)
-        .order_by(desc(ConveyorStopEvent.stopped_at))
-        .limit(limit)
-    )
-    events = result.scalars().all()
-    return [
-        {
-            "id": e.id,
-            "camera_id": e.camera_id,
-            "stopped_at": e.stopped_at,
-            "resumed_at": e.resumed_at,
-            "duration_sec": e.duration_sec,
-            "trigger_type": e.trigger_type
-        }
-        for e in events
-    ]
+@router.post("/resume/{line_id}")
+async def resume_line(line_id: int):
+    result = await plc_controller.resume_line(line_id=line_id)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return {"message": f"Line {line_id} resumed", "status": result}
+
+
+@router.get("/logs")
+async def get_all_relay_logs():
+    return {
+        "logs": plc_controller.get_relay_logs()
+    }
+
+
+@router.get("/logs/{line_id}")
+async def get_line_relay_logs(line_id: int):
+    logs = plc_controller.get_relay_logs(line_id=line_id)
+    return {
+        "line_id": line_id,
+        "logs": logs
+    }
