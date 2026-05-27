@@ -3,6 +3,7 @@
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from typing import Optional
 from app.services.plc_controller import plc_controller
 
 router = APIRouter()
@@ -10,8 +11,6 @@ router = APIRouter()
 class PLCCommand(BaseModel):
     line_id: str
     reason: Optional[str] = None
-
-from typing import Optional
 
 @router.get("/status")
 async def get_plc_status():
