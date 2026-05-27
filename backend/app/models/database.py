@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-engine = create_async_engine(settings.DATABASE_URL, echo=False)
+engine = create_async_engine(settings.get_database_url(), echo=False)
 
 AsyncSessionLocal = sessionmaker(
     bind=engine,
