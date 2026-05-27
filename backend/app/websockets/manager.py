@@ -1,14 +1,14 @@
-# =============================================================
+ 
+# ==============================================================================
 # BARREL-GUARD AI — Foreign Object Detection Platform
 # Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
-# Unauthorized copying, modification, or distribution of
-# this file, via any medium, is strictly prohibited.
-# =============================================================
+# Unauthorized copying, modification, or distribution is strictly prohibited.
+# ==============================================================================
 
 import json
 import logging
-from typing import Dict
 from fastapi import WebSocket
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 
@@ -23,27 +23,30 @@ class WebSocketManager:
         logger.info(f"WebSocket connected: {client_id}")
 
     def disconnect(self, client_id: str):
-        self.active_connections.pop(client_id, None)
-        logger.info(f"WebSocket disconnected: {client_id}")
+        if client_id in self.active_connections:
+            del self.active_connections[client_id]
+            logger.info(f"WebSocket disconnected: {client_id}")
 
     async def broadcast(self, message: dict):
+        if not self.active_connections:
+            return
+        data = json.dumps(message)
         disconnected = []
         for client_id, websocket in self.active_connections.items():
             try:
-                await websocket.send_text(json.dumps(message))
-            except Exception as e:
-                logger.warning(f"Failed to send to {client_id}: {e}")
+                await websocket.send_text(data)
+            except Exception:
                 disconnected.append(client_id)
         for client_id in disconnected:
             self.disconnect(client_id)
 
-    async def send_personal(self, client_id: str, message: dict):
-        websocket = self.active_connections.get(client_id)
-        if websocket:
+    async def send_to(self, client_id: str, message: dict):
+        if client_id in self.active_connections:
             try:
-                await websocket.send_text(json.dumps(message))
-            except Exception as e:
-                logger.warning(f"Failed to send personal to {client_id}: {e}")
+                await self.active_connections[client_id].send_text(
+                    json.dumps(message)
+                )
+            except Exception:
                 self.disconnect(client_id)
 
 

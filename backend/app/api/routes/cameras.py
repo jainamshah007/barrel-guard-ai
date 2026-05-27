@@ -1,38 +1,37 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from typing import List
-from datetime import datetime
+# ==============================================================================
+# BARREL-GUARD AI — Foreign Object Detection Platform
+# Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
+# Unauthorized copying, modification, or distribution is strictly prohibited.
+# ==============================================================================
 
-from app.models.database import Camera, get_db
-from app.schemas.schemas import CameraOut, CameraUpdate
+from fastapi import APIRouter, HTTPException
+from app.core.config import settings
+from app.services.simulator import CAMERA_NAMES
 
-router = APIRouter()
-
-
-@router.get("/", response_model=List[CameraOut])
-async def get_cameras(
-    db: AsyncSession = Depends(get_db)
-):
-    result = await db.execute(select(Camera))
-    return result.scalars().all()
+router = APIRouter(prefix="/cameras", tags=["Cameras"])
 
 
-@router.put("/{camera_id}")
-async def update_camera(
-    camera_id: int,
-    body: CameraUpdate,
-    db: AsyncSession = Depends(get_db)
-):
-    cam = await db.get(Camera, camera_id)
-    if not cam:
-        from fastapi import HTTPException
-        raise HTTPException(404, "Camera not found")
+@router.get("/")
+async def get_cameras():
+    cameras = [
+        {
+            "id": i,
+            "name": CAMERA_NAMES[i],
+            "status": "active",
+            "line": "A" if i % 2 == 0 else "B",
+        }
+        for i in range(settings.NUM_CAMERAS)
+    ]
+    return {"cameras": cameras}
 
-    for field, value in body.model_dump(
-        exclude_none=True
-    ).items():
-        setattr(cam, field, value)
-    cam.updated_at = datetime.utcnow()
-    await db.commit()
-    return {"status": "updated"}
+
+@router.get("/{camera_id}")
+async def get_camera(camera_id: int):
+    if camera_id < 0 or camera_id >= settings.NUM_CAMERAS:
+        raise HTTPException(status_code=404, detail="Camera not found")
+    return {
+        "id": camera_id,
+        "name": CAMERA_NAMES[camera_id],
+        "status": "active",
+        "line": "A" if camera_id % 2 == 0 else "B",
+    }

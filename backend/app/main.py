@@ -1,81 +1,79 @@
-# =============================================================
+# ==============================================================================
 # BARREL-GUARD AI — Foreign Object Detection Platform
 # Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
-# Unauthorized copying, modification, or distribution of
-# this file, via any medium, is strictly prohibited.
-# =============================================================
+# Unauthorized copying, modification, or distribution is strictly prohibited.
+# ==============================================================================
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
 import asyncio
 import logging
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.models.database import init_db
-from app.services.simulator import SimulatorService
-from app.services.plc_controller import PLCController
-from app.services.notification import NotificationService
 from app.websockets.manager import ws_manager
+from app.services.simulator import simulator
+from app.services.plc_controller import plc_controller
+from app.services.notification import notification_service
 from app.api.routes import detections, cameras, simulation, analytics, plc
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-simulator_service = SimulatorService()
-plc_controller = PLCController()
-notification_service = NotificationService()
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting BARREL-GUARD AI Platform...")
-    await init_db()
-    asyncio.create_task(simulator_service.start())
-    asyncio.create_task(plc_controller.start())
-    asyncio.create_task(notification_service.start())
+    # ── Startup ────────────────────────────────────────────────────────────────
+    logger.info("BARREL-GUARD AI starting up...")
+    try:
+        await init_db()
+        logger.info("Database initialized")
+    except Exception as e:
+        logger.error(f"Database init failed: {e}")
+
+    try:
+        simulator.set_ws_manager(ws_manager)
+        plc_controller.set_ws_manager(ws_manager)
+        notification_service.set_ws_manager(ws_manager)
+        if settings.SIMULATION_ENABLED:
+            asyncio.create_task(simulator.start())
+            logger.info("Simulator started")
+    except Exception as e:
+        logger.error(f"Service startup failed: {e}")
+
     yield
-    logger.info("Shutting down BARREL-GUARD AI Platform...")
-    await simulator_service.stop()
-    await plc_controller.stop()
-    await notification_service.stop()
+
+    # ── Shutdown ───────────────────────────────────────────────────────────────
+    logger.info("BARREL-GUARD AI shutting down...")
+    await simulator.stop()
 
 
 app = FastAPI(
-    title=settings.APP_NAME,
-    version=settings.APP_VERSION,
-    description=(
-        "Foreign Object Detection Platform for Industrial Conveyor Lines. "
-        "Copyright (c) 2024 Jainam K Shah. All Rights Reserved."
-    ),
-    lifespan=lifespan
+    title="BARREL-GUARD AI",
+    description="Foreign Object Detection Platform — Copyright (c) 2024 Jainam K Shah",
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
-# CORS Middleware
+# ── CORS ───────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "https://barrel-guard-ai.vercel.app",
-        settings.FRONTEND_URL,
-        "*",
-    ],
+    allow_origins=settings.get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(detections.router, prefix="/api/v1", tags=["Detections"])
-app.include_router(cameras.router,    prefix="/api/v1", tags=["Cameras"])
-app.include_router(simulation.router, prefix="/api/v1", tags=["Simulation"])
-app.include_router(analytics.router,  prefix="/api/v1", tags=["Analytics"])
-app.include_router(plc.router,        prefix="/api/v1", tags=["PLC"])
+# ── Routers ────────────────────────────────────────────────────────────────────
+app.include_router(detections.router, prefix="/api/v1")
+app.include_router(cameras.router, prefix="/api/v1")
+app.include_router(simulation.router, prefix="/api/v1")
+app.include_router(analytics.router, prefix="/api/v1")
+app.include_router(plc.router, prefix="/api/v1")
 
-# WebSocket endpoint
-from fastapi import WebSocket, WebSocketDisconnect
 
+# ── WebSocket ──────────────────────────────────────────────────────────────────
 @app.websocket("/ws/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, client_id: str):
     await ws_manager.connect(websocket, client_id)
@@ -86,11 +84,21 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
         ws_manager.disconnect(client_id)
 
 
+# ── Health ─────────────────────────────────────────────────────────────────────
 @app.get("/health")
-async def health_check():
+async def health():
     return {
         "status": "healthy",
-        "app": settings.APP_NAME,
-        "version": settings.APP_VERSION,
-        "copyright": "Copyright (c) 2024 Jainam K Shah. All Rights Reserved."
+        "service": "BARREL-GUARD AI",
+        "version": "1.0.0",
+        "copyright": "Copyright (c) 2024 Jainam K Shah",
+    }
+
+
+@app.get("/")
+async def root():
+    return {
+        "message": "BARREL-GUARD AI — Foreign Object Detection Platform",
+        "docs": "/docs",
+        "health": "/health",
     }
