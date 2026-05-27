@@ -24,16 +24,18 @@ async def stop_line(command: PLCCommand):
             reason=command.reason or "Manual stop"
         )
         return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/resume")
 async def resume_line(command: PLCCommand):
     try:
-        result = await plc_controller.resume_line(
-            line_id=command.line_id
-        )
+        result = await plc_controller.resume_line(line_id=command.line_id)
         return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

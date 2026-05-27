@@ -42,31 +42,29 @@ async def stop_simulation():
 @router.post("/inject")
 async def inject_detection(request: InjectRequest = None):
     try:
-        camera_id = None
-        object_class = None
-        if request:
-            camera_id = request.camera_id
-            object_class = request.object_class
-        await simulator.inject_detection(
-            camera_id=camera_id,
-            object_class=object_class
+        result = await simulator.inject_detection(
+            camera_id=request.camera_id if request else None,
+            object_class=request.object_class if request else None
         )
-        return {"message": "Detection injected successfully"}
+        return {"message": "Detection injected successfully", "detection": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/config")
 async def update_config(config: SimulationConfig):
     if config.interval is not None:
-        if config.interval < 1 or config.interval > 60:
-            raise HTTPException(status_code=400, detail="Interval must be between 1 and 60 seconds")
+        if not (1 <= config.interval <= 60):
+            raise HTTPException(status_code=400, detail="Interval must be 1–60 seconds")
         sim_state.interval = config.interval
     if config.num_cameras is not None:
         sim_state.num_cameras = config.num_cameras
     if config.auto_mode is not None:
         sim_state.auto_mode = config.auto_mode
-    return {"message": "Configuration updated", "config": {
-        "interval": sim_state.interval,
-        "num_cameras": sim_state.num_cameras,
-        "auto_mode": sim_state.auto_mode
-    }}
+    return {
+        "message": "Config updated",
+        "config": {
+            "interval": sim_state.interval,
+            "num_cameras": sim_state.num_cameras,
+            "auto_mode": sim_state.auto_mode
+        }
+    }

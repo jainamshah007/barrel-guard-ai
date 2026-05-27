@@ -1,10 +1,9 @@
 # BARREL-GUARD AI — Foreign Object Detection Platform
 # Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
 
-import asyncio
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +36,17 @@ class PLCController:
     def set_ws_manager(self, manager):
         self.ws_manager = manager
 
+    def _normalize_line_id(self, line_id: str) -> str:
+        mapping = {
+            "1": "line_a", "2": "line_b",
+            "line_1": "line_a", "line_2": "line_b",
+            "line a": "line_a", "line b": "line_b",
+            "a": "line_a", "b": "line_b",
+            "camera 1": "line_a", "camera 2": "line_b",
+            "cam1": "line_a", "cam2": "line_b",
+        }
+        return mapping.get(line_id.lower().strip(), line_id.lower().strip())
+
     def get_all_status(self) -> dict:
         return {
             "lines": {k: v.to_dict() for k, v in self.lines.items()},
@@ -47,20 +57,19 @@ class PLCController:
         return self.logs[-50:]
 
     async def stop_line(self, line_id: str, reason: str = "Manual stop") -> dict:
-        # Accept both formats: "line_a" and "1" or "2"
         line_id = self._normalize_line_id(line_id)
         if line_id not in self.lines:
-            raise ValueError(f"Unknown line_id: {line_id}. Valid: {list(self.lines.keys())}")
+            raise ValueError(f"Unknown line: {line_id}")
         line = self.lines[line_id]
         line.status = "stopped"
-        line.stopped_at = datetime.utcnow().isoformat()
+        line.stopped_at = datetime.utcnow().isoformat() + "Z"
         line.reason = reason
         log_entry = {
             "event": "stop",
             "line_id": line_id,
             "name": line.name,
             "reason": reason,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat() + "Z"
         }
         self.logs.append(log_entry)
         if self.ws_manager:
@@ -68,13 +77,12 @@ class PLCController:
                 "type": "plc_stop",
                 "payload": line.to_dict()
             })
-        logger.info(f"Line {line_id} stopped: {reason}")
         return {"success": True, "line": line.to_dict()}
 
     async def resume_line(self, line_id: str) -> dict:
         line_id = self._normalize_line_id(line_id)
         if line_id not in self.lines:
-            raise ValueError(f"Unknown line_id: {line_id}. Valid: {list(self.lines.keys())}")
+            raise ValueError(f"Unknown line: {line_id}")
         line = self.lines[line_id]
         line.status = "running"
         line.stopped_at = None
@@ -84,7 +92,7 @@ class PLCController:
             "line_id": line_id,
             "name": line.name,
             "reason": "Manual resume",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat() + "Z"
         }
         self.logs.append(log_entry)
         if self.ws_manager:
@@ -92,18 +100,6 @@ class PLCController:
                 "type": "plc_resume",
                 "payload": line.to_dict()
             })
-        logger.info(f"Line {line_id} resumed")
         return {"success": True, "line": line.to_dict()}
-
-    def _normalize_line_id(self, line_id: str) -> str:
-        """Accept line_a, line_b, 1, 2, Line A, Line B etc."""
-        mapping = {
-            "1": "line_a", "2": "line_b",
-            "line_1": "line_a", "line_2": "line_b",
-            "line a": "line_a", "line b": "line_b",
-            "a": "line_a", "b": "line_b",
-        }
-        normalized = line_id.lower().strip()
-        return mapping.get(normalized, normalized)
 
 plc_controller = PLCController()

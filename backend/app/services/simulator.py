@@ -5,7 +5,7 @@ import asyncio
 import random
 import logging
 from datetime import datetime
-from typing import Optional, List, Callable
+from typing import Optional, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +59,8 @@ class SimulatorService:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Simulator error: {e}")
-                await asyncio.sleep(1)
+                logger.error(f"Simulator loop error: {e}")
+                await asyncio.sleep(2)
 
     async def inject_detection(
         self,
@@ -70,15 +70,16 @@ class SimulatorService:
         cam_id = camera_id if camera_id is not None else random.randint(0, sim_state.num_cameras - 1)
         obj_class = object_class if object_class in OBJECT_CLASSES else random.choice(OBJECT_CLASSES)
         confidence = round(random.uniform(0.75, 0.99), 3)
-        now = datetime.utcnow().isoformat()
+        now = datetime.utcnow()
+        now_iso = now.isoformat() + "Z"
 
         detection = {
-            "id": random.randint(1000, 9999),
+            "id": random.randint(1000, 999999),
             "camera_id": cam_id,
             "camera_name": CAMERA_NAMES.get(cam_id, f"Camera {cam_id + 1}"),
             "object_class": obj_class,
             "confidence": confidence,
-            "timestamp": now,
+            "timestamp": now_iso,
             "line_id": "line_a" if cam_id == 0 else "line_b",
             "barrel_id": f"BARREL-{random.randint(100, 999)}",
             "batch_id": f"BATCH-{random.randint(10, 99)}",
@@ -92,21 +93,19 @@ class SimulatorService:
 
         sim_state.total_injected += 1
 
-        # Broadcast via WebSocket
         if self.ws_manager:
             await self.ws_manager.broadcast({
                 "type": "new_detection",
                 "payload": detection
             })
 
-        # Save to DB via callback
         if self.on_detection:
             try:
                 await self.on_detection(detection)
             except Exception as e:
                 logger.error(f"Detection callback error: {e}")
 
-        logger.info(f"Injected: {obj_class} on {CAMERA_NAMES.get(cam_id)} confidence={confidence}")
+        logger.info(f"Detection injected: {obj_class} on {CAMERA_NAMES.get(cam_id)} conf={confidence}")
         return detection
 
 simulator = SimulatorService()
