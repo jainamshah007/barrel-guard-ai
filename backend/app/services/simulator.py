@@ -1,121 +1,112 @@
-# ==============================================================================
 # BARREL-GUARD AI — Foreign Object Detection Platform
 # Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
-# Unauthorized copying, modification, or distribution is strictly prohibited.
-# ==============================================================================
 
 import asyncio
 import random
-import uuid
+import logging
 from datetime import datetime
-from typing import Optional
-from app.core.config import settings
+from typing import Optional, List, Callable
 
-# ── Simulation state object (imported by routes) ──────────────────────────────
+logger = logging.getLogger(__name__)
+
+OBJECT_CLASSES = ["hard_helmet", "glove", "mask", "keys", "wallet", "tool", "bottle"]
+CAMERA_NAMES = {
+    0: "Camera 1 - Line A",
+    1: "Camera 2 - Line B"
+}
+
 class SimulationState:
     def __init__(self):
-        self.running: bool = False
-        self.auto_mode: bool = True
-        self.interval: float = settings.SIMULATION_INTERVAL
-        self.num_cameras: int = settings.NUM_CAMERAS
-        self.injection_count: int = 0
-        self.session_start: Optional[datetime] = None
+        self.running = False
+        self.auto_mode = True
+        self.interval = 5.0
+        self.num_cameras = 2
+        self.total_injected = 0
 
 sim_state = SimulationState()
 
-# ── Foreign object classes ─────────────────────────────────────────────────────
-OBJECT_CLASSES = [
-    "hard_helmet",
-    "glove",
-    "face_mask",
-    "key",
-    "wallet",
-    "bottle",
-    "tool",
-    "cloth",
-]
-
-CAMERA_NAMES = [
-    f"Camera {i+1} — Line {'A' if i % 2 == 0 else 'B'}"
-    for i in range(settings.NUM_CAMERAS)
-]
-
-
-# ── Simulator service ──────────────────────────────────────────────────────────
 class SimulatorService:
     def __init__(self):
-        self._task: Optional[asyncio.Task] = None
-        self._ws_manager = None
-        self._db_callback = None
+        self.task: Optional[asyncio.Task] = None
+        self.on_detection: Optional[Callable] = None
+        self.ws_manager = None
 
     def set_ws_manager(self, manager):
-        self._ws_manager = manager
+        self.ws_manager = manager
 
-    def set_db_callback(self, callback):
-        self._db_callback = callback
+    def set_detection_callback(self, callback: Callable):
+        self.on_detection = callback
 
     async def start(self):
-        if not settings.SIMULATION_ENABLED:
-            return
-        sim_state.running = True
-        sim_state.session_start = datetime.utcnow()
-        self._task = asyncio.create_task(self._run_loop())
+        if not sim_state.running:
+            sim_state.running = True
+            self.task = asyncio.create_task(self._run_loop())
+            logger.info("Simulator started")
 
     async def stop(self):
         sim_state.running = False
-        if self._task:
-            self._task.cancel()
-            try:
-                await self._task
-            except asyncio.CancelledError:
-                pass
+        if self.task:
+            self.task.cancel()
+            self.task = None
+        logger.info("Simulator stopped")
 
-    async def inject_detection(self, camera_id: int = None, object_class: str = None):
-        cam_id = camera_id if camera_id is not None else random.randint(0, settings.NUM_CAMERAS - 1)
-        obj_class = object_class if object_class else random.choice(OBJECT_CLASSES)
-        confidence = round(random.uniform(0.82, 0.99), 3)
+    async def _run_loop(self):
+        while sim_state.running:
+            try:
+                if sim_state.auto_mode:
+                    await self.inject_detection()
+                await asyncio.sleep(sim_state.interval)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Simulator error: {e}")
+                await asyncio.sleep(1)
+
+    async def inject_detection(
+        self,
+        camera_id: Optional[int] = None,
+        object_class: Optional[str] = None
+    ):
+        cam_id = camera_id if camera_id is not None else random.randint(0, sim_state.num_cameras - 1)
+        obj_class = object_class if object_class in OBJECT_CLASSES else random.choice(OBJECT_CLASSES)
+        confidence = round(random.uniform(0.75, 0.99), 3)
+        now = datetime.utcnow().isoformat()
 
         detection = {
-            "id": str(uuid.uuid4()),
+            "id": random.randint(1000, 9999),
             "camera_id": cam_id,
-            "camera_name": CAMERA_NAMES[cam_id] if cam_id < len(CAMERA_NAMES) else f"Camera {cam_id}",
+            "camera_name": CAMERA_NAMES.get(cam_id, f"Camera {cam_id + 1}"),
             "object_class": obj_class,
             "confidence": confidence,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": now,
+            "line_id": "line_a" if cam_id == 0 else "line_b",
+            "barrel_id": f"BARREL-{random.randint(100, 999)}",
+            "batch_id": f"BATCH-{random.randint(10, 99)}",
             "bbox": {
                 "x": random.randint(50, 400),
                 "y": random.randint(50, 300),
                 "width": random.randint(40, 120),
-                "height": random.randint(40, 120),
-            },
-            "line_stopped": confidence > 0.90,
+                "height": random.randint(40, 120)
+            }
         }
 
-        sim_state.injection_count += 1
+        sim_state.total_injected += 1
 
         # Broadcast via WebSocket
-        if self._ws_manager:
-            await self._ws_manager.broadcast({
+        if self.ws_manager:
+            await self.ws_manager.broadcast({
                 "type": "new_detection",
-                "payload": detection,
+                "payload": detection
             })
 
-        # Persist to DB
-        if self._db_callback:
-            await self._db_callback(detection)
-
-        return detection
-
-    async def _run_loop(self):
-        while sim_state.running and sim_state.auto_mode:
+        # Save to DB via callback
+        if self.on_detection:
             try:
-                await asyncio.sleep(sim_state.interval)
-                if sim_state.running and sim_state.auto_mode:
-                    await self.inject_detection()
-            except asyncio.CancelledError:
-                break
-            except Exception:
-                await asyncio.sleep(2)
+                await self.on_detection(detection)
+            except Exception as e:
+                logger.error(f"Detection callback error: {e}")
 
+        logger.info(f"Injected: {obj_class} on {CAMERA_NAMES.get(cam_id)} confidence={confidence}")
+        return detection
 
 simulator = SimulatorService()
