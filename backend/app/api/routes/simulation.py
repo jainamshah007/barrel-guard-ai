@@ -1,64 +1,76 @@
-from fastapi import APIRouter, Depends, BackgroundTasks
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.database import get_db
-from app.schemas.schemas import (
-    InjectRequest, SimConfigRequest
-)
-from app.services.simulator import (
-    sim_state, inject_detection
-)
-from app.websockets.manager import manager
-from app.models.database import AsyncSessionLocal
+# ==============================================================================
+# BARREL-GUARD AI — Foreign Object Detection Platform
+# Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
+# Unauthorized copying, modification, or distribution is strictly prohibited.
+# ==============================================================================
 
-router = APIRouter()
+from fastapi import APIRouter, HTTPException
+from app.services.simulator import simulator, sim_state, OBJECT_CLASSES, CAMERA_NAMES
+from app.core.config import settings
+
+router = APIRouter(prefix="/simulation", tags=["Simulation"])
 
 
 @router.get("/status")
-async def get_status():
-    return sim_state
-
-
-@router.post("/inject")
-async def manual_inject(
-    body: InjectRequest,
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db)
-):
-    background_tasks.add_task(
-        inject_detection,
-        body.camera_id,
-        body.object_class,
-        AsyncSessionLocal,
-        manager
-    )
+async def get_simulation_status():
     return {
-        "status": "injected",
-        "camera_id": body.camera_id,
-        "object_class": body.object_class
+        "running": sim_state.running,
+        "auto_mode": sim_state.auto_mode,
+        "interval": sim_state.interval,
+        "num_cameras": sim_state.num_cameras,
+        "injection_count": sim_state.injection_count,
+        "session_start": sim_state.session_start.isoformat() if sim_state.session_start else None,
+        "object_classes": OBJECT_CLASSES,
+        "cameras": CAMERA_NAMES,
     }
 
 
+@router.post("/start")
+async def start_simulation():
+    if sim_state.running:
+        return {"message": "Simulation already running"}
+    await simulator.start()
+    return {"message": "Simulation started", "running": sim_state.running}
+
+
+@router.post("/stop")
+async def stop_simulation():
+    await simulator.stop()
+    return {"message": "Simulation stopped", "running": sim_state.running}
+
+
+@router.post("/inject")
+async def inject_detection(camera_id: int = None, object_class: str = None):
+    if object_class and object_class not in OBJECT_CLASSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid object class. Choose from: {OBJECT_CLASSES}"
+        )
+    detection = await simulator.inject_detection(
+        camera_id=camera_id,
+        object_class=object_class,
+    )
+    return {"message": "Detection injected", "detection": detection}
+
+
 @router.post("/config")
-async def update_config(body: SimConfigRequest):
-    sim_state["auto_mode"] = body.auto_mode
-    if body.interval_min:
-        sim_state["interval_min"] = body.interval_min
-    if body.interval_max:
-        sim_state["interval_max"] = body.interval_max
-    return {"status": "updated", "config": sim_state}
+async def update_simulation_config(
+    interval: float = None,
+    auto_mode: bool = None,
+):
+    if interval is not None:
+        if interval < 1.0 or interval > 60.0:
+            raise HTTPException(
+                status_code=400,
+                detail="Interval must be between 1 and 60 seconds"
+            )
+        sim_state.interval = interval
 
+    if auto_mode is not None:
+        sim_state.auto_mode = auto_mode
 
-@router.post("/resume/{camera_id}")
-async def resume_line(camera_id: int):
-    if camera_id in sim_state["camera_states"]:
-        sim_state["camera_states"][camera_id].update({
-            "stopped": False,
-            "alert_active": False,
-            "last_detection": None
-        })
-        await manager.broadcast({
-            "type": "plc_update",
-            "camera_id": camera_id,
-            "status": "RUNNING"
-        })
-    return {"status": "resumed"}
+    return {
+        "message": "Configuration updated",
+        "interval": sim_state.interval,
+        "auto_mode": sim_state.auto_mode,
+    }
