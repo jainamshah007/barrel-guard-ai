@@ -3,23 +3,20 @@
 // Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
 // =============================================================
 
-import { useStore } from '../store/useStore'
-import KPICard from '../components/Common/KPICard'
-import AlertBadge from '../components/Common/AlertBadge'
+import { useStore } from '../store/useStore';
+import KPICard from '../components/Common/KPICard';
 
 export default function Overview() {
-  const detections = useStore((s) => s.detections)
-  const plcStatus  = useStore((s) => s.plcStatus)
+  const detections = useStore((s) => s.detections);
+  const plcStatus  = useStore((s) => s.plcStatus);
 
-  const highCount   = detections.filter((d) => d.severity === 'HIGH').length
-  const stoppedLines = Object.values(plcStatus)
-    .filter((l) => l.status === 'STOPPED').length
+  const stoppedLines = Object.values(plcStatus).filter(
+    (l) => l.status === 'stopped'
+  ).length;
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">
-        📊 System Overview
-      </h1>
+      <h1 className="text-2xl font-bold text-gray-800">📊 System Overview</h1>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -31,9 +28,9 @@ export default function Overview() {
           icon="🔍"
         />
         <KPICard
-          title="High Severity"
-          value={highCount}
-          subtitle="Requires immediate action"
+          title="Foreign Objects"
+          value={detections.length}
+          subtitle="All detections are alerts"
           color="#dc2626"
           icon="🚨"
         />
@@ -54,23 +51,23 @@ export default function Overview() {
       </div>
 
       {/* PLC Status */}
-      <div className="bg-white rounded-xl border border-gray-200
-        shadow-sm p-5">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h2 className="text-base font-semibold text-gray-700 mb-4">
           ⚙️ Conveyor Line Status
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {Object.entries(plcStatus).map(([lineId, state]) => (
-            <div key={lineId}
-              className="flex items-center justify-between
-              p-4 rounded-lg border border-gray-100 bg-gray-50">
+            <div
+              key={lineId}
+              className="flex items-center justify-between p-4 rounded-lg border border-gray-100 bg-gray-50"
+            >
               <span className="font-medium text-gray-700">{lineId}</span>
               <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                state.status === 'RUNNING'
+                state.status === 'running'
                   ? 'bg-green-100 text-green-700'
                   : 'bg-red-100 text-red-700'
               }`}>
-                {state.status}
+                {state.status.toUpperCase()}
               </span>
             </div>
           ))}
@@ -83,8 +80,7 @@ export default function Overview() {
       </div>
 
       {/* Recent Detections */}
-      <div className="bg-white rounded-xl border border-gray-200
-        shadow-sm p-5">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h2 className="text-base font-semibold text-gray-700 mb-4">
           🔍 Recent Detections
         </h2>
@@ -95,16 +91,19 @@ export default function Overview() {
         ) : (
           <div className="space-y-2">
             {detections.slice(0, 8).map((d) => (
-              <div key={d.id}
-                className="flex items-center justify-between
-                p-3 rounded-lg border border-gray-100 hover:bg-gray-50">
+              <div
+                key={d.id}
+                className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:bg-gray-50"
+              >
                 <div className="flex items-center gap-3">
-                  <AlertBadge severity={d.severity} />
+                  <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                    ⚠️
+                  </span>
                   <span className="text-sm font-medium text-gray-700">
                     {d.object_class.replace(/_/g, ' ').toUpperCase()}
                   </span>
                   <span className="text-xs text-gray-400">
-                    {d.conveyor_line_id} — Barrel {d.barrel_id}
+                    {d.line_id} — Barrel {d.barrel_id}
                   </span>
                 </div>
                 <div className="text-xs text-gray-400">
@@ -116,5 +115,5 @@ export default function Overview() {
         )}
       </div>
     </div>
-  )
+  );
 }

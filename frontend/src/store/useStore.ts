@@ -13,36 +13,32 @@ export interface Detection {
   confidence: number;
   timestamp: string;
   line_id: string;
-  barrel_id?: string;
-  batch_id?: string;
+  barrel_id: string;
+  batch_id: string;
+  bbox?: number[];
 }
 
 export interface NotificationItem {
   id: number;
-  title: string;
   message: string;
-  severity: string;
-  camera_id?: number;
-  object_class?: string;
-  is_read: boolean;
+  object_class: string;
+  camera_name: string;
   timestamp: string;
+  read: boolean;
 }
 
-export interface PLCLine {
-  line_id: string;
-  name: string;
-  status: string;
-  stopped_at?: string;
-  reason?: string;
+export interface PLCLineStatus {
+  status: 'running' | 'stopped';
+  stopped_at: string | null;
 }
 
-export interface StoreState {
+interface StoreState {
   detections: Detection[];
   notifications: NotificationItem[];
-  plcStatus: Record<string, PLCLine>;
+  plcStatus: Record<string, PLCLineStatus>;
   addDetection: (d: Detection) => void;
   addNotification: (n: NotificationItem) => void;
-  setPLCStatus: (line: PLCLine) => void;
+  setPLCStatus: (lineId: string, status: PLCLineStatus) => void;
   markAllRead: () => void;
 }
 
@@ -61,16 +57,13 @@ export const useStore = create<StoreState>((set) => ({
       notifications: [n, ...state.notifications].slice(0, 50),
     })),
 
-  setPLCStatus: (line) =>
+  setPLCStatus: (lineId, status) =>
     set((state) => ({
-      plcStatus: {
-        ...state.plcStatus,
-        [line.line_id]: line,
-      },
+      plcStatus: { ...state.plcStatus, [lineId]: status },
     })),
 
   markAllRead: () =>
     set((state) => ({
-      notifications: state.notifications.map((n) => ({ ...n, is_read: true })),
+      notifications: state.notifications.map((n) => ({ ...n, read: true })),
     })),
 }));

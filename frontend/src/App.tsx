@@ -5,7 +5,7 @@
 
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useWebSocket } from './hooks/useWebSocket';
-import Layout from './components/layout/Layout';
+import Layout from './components/Layout';
 import Overview from './pages/Overview';
 import LiveMonitor from './pages/LiveMonitor';
 import Alerts from './pages/Alerts';

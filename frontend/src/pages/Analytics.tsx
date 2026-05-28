@@ -3,55 +3,49 @@
 // Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
 // =============================================================
 
-import { useStore } from '../store/useStore'
+import { useStore } from '../store/useStore';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend
-} from 'recharts'
+} from 'recharts';
 
 const COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706',
-                '#7c3aed', '#0891b2', '#be185d', '#065f46']
+                '#7c3aed', '#0891b2', '#be185d', '#065f46'];
 
 export default function Analytics() {
-  const detections = useStore((s) => s.detections)
+  const detections = useStore((s) => s.detections);
 
-  // Count by object class
   const classCounts = detections.reduce<Record<string, number>>((acc, d) => {
-    acc[d.object_class] = (acc[d.object_class] || 0) + 1
-    return acc
-  }, {})
+    acc[d.object_class] = (acc[d.object_class] || 0) + 1;
+    return acc;
+  }, {});
 
   const barData = Object.entries(classCounts).map(([name, count]) => ({
     name: name.replace(/_/g, ' '),
-    count
-  }))
+    count,
+  }));
 
-  // Count by line
   const lineCounts = detections.reduce<Record<string, number>>((acc, d) => {
-    acc[d.conveyor_line_id] = (acc[d.conveyor_line_id] || 0) + 1
-    return acc
-  }, {})
+    acc[d.line_id] = (acc[d.line_id] || 0) + 1;
+    return acc;
+  }, {});
 
   const pieData = Object.entries(lineCounts).map(([name, value]) => ({
-    name, value
-  }))
+    name,
+    value,
+  }));
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">
-        📊 Analytics
-      </h1>
+      <h1 className="text-2xl font-bold text-gray-800">📊 Analytics</h1>
 
       {detections.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200
-          shadow-sm p-12 text-center text-gray-400">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center text-gray-400">
           No data yet. Waiting for detections...
         </div>
       ) : (
         <>
-          {/* Bar Chart */}
-          <div className="bg-white rounded-xl border border-gray-200
-            shadow-sm p-5">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
             <h2 className="text-base font-semibold text-gray-700 mb-4">
               Detections by Object Class
             </h2>
@@ -66,9 +60,7 @@ export default function Analytics() {
             </ResponsiveContainer>
           </div>
 
-          {/* Pie Chart */}
-          <div className="bg-white rounded-xl border border-gray-200
-            shadow-sm p-5">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
             <h2 className="text-base font-semibold text-gray-700 mb-4">
               Detections by Conveyor Line
             </h2>
@@ -84,10 +76,7 @@ export default function Analytics() {
                   label
                 >
                   {pieData.map((_, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                    />
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip />
@@ -98,5 +87,5 @@ export default function Analytics() {
         </>
       )}
     </div>
-  )
+  );
 }
