@@ -1,50 +1,49 @@
-// =============================================================
-// BARREL-GUARD AI — Foreign Object Detection Platform
-// Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
-// =============================================================
+/*
+ * BARREL-GUARD AI — Foreign Object Detection Platform
+ * Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
+ */
 
-import { create } from 'zustand'
+import { create } from 'zustand';
 
-interface Detection {
-  id: number
-  camera_id: number
-  conveyor_line_id: string
-  barrel_id: string
-  batch_id: string
-  object_class: string
-  confidence: number
-  severity: string
-  plc_triggered: boolean
-  created_at: string
+export interface Detection {
+  id: number;
+  camera_id: number;
+  camera_name: string;
+  object_class: string;
+  confidence: number;
+  timestamp: string;
+  line_id: string;
+  barrel_id?: string;
+  batch_id?: string;
 }
 
-interface Notification {
-  id: number
-  severity: string
-  object_class: string
-  line_id: string
-  barrel_id: string
-  confidence: number
-  message: string
-  channel: string
-  sent_at: string
+export interface NotificationItem {
+  id: number;
+  title: string;
+  message: string;
+  severity: string;
+  camera_id?: number;
+  object_class?: string;
+  is_read: boolean;
+  timestamp: string;
 }
 
-interface PLCState {
-  [lineId: string]: {
-    status: string
-    stopped_at: string | null
-  }
+export interface PLCLine {
+  line_id: string;
+  name: string;
+  status: string;
+  stopped_at?: string;
+  reason?: string;
 }
 
-interface StoreState {
-  detections: Detection[]
-  notifications: Notification[]
-  plcStatus: PLCState
-  addDetection: (d: Detection) => void
-  addNotification: (n: Notification) => void
-  setPLCStatus: (s: PLCState) => void
-  clearDetections: () => void
+export interface StoreState {
+  detections: Detection[];
+  notifications: NotificationItem[];
+  plcStatus: Record<string, PLCLine>;
+  addDetection: (d: Detection) => void;
+  addNotification: (n: NotificationItem) => void;
+  setPLCStatus: (line: PLCLine) => void;
+  markAllRead: () => void;
 }
 
 export const useStore = create<StoreState>((set) => ({
@@ -54,16 +53,24 @@ export const useStore = create<StoreState>((set) => ({
 
   addDetection: (d) =>
     set((state) => ({
-      detections: [d, ...state.detections].slice(0, 100)
+      detections: [d, ...state.detections].slice(0, 100),
     })),
 
   addNotification: (n) =>
     set((state) => ({
-      notifications: [n, ...state.notifications].slice(0, 50)
+      notifications: [n, ...state.notifications].slice(0, 50),
     })),
 
-  setPLCStatus: (s) =>
-    set(() => ({ plcStatus: s })),
+  setPLCStatus: (line) =>
+    set((state) => ({
+      plcStatus: {
+        ...state.plcStatus,
+        [line.line_id]: line,
+      },
+    })),
 
-  clearDetections: () => set({ detections: [] })
-}))
+  markAllRead: () =>
+    set((state) => ({
+      notifications: state.notifications.map((n) => ({ ...n, is_read: true })),
+    })),
+}));

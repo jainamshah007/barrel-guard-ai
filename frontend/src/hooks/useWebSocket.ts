@@ -1,73 +1,62 @@
-// =============================================================
-// BARREL-GUARD AI — Foreign Object Detection Platform
-// Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
-// Unauthorized copying, modification, or distribution is
-// strictly prohibited without explicit written permission.
-// =============================================================
+/*
+ * BARREL-GUARD AI — Foreign Object Detection Platform
+ * Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
+ */
 
-import { useEffect, useRef, useCallback } from 'react'
-import { useStore } from '../store/useStore'
-
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000'
+import { useEffect, useRef } from 'react';
+import { useStore } from '../store/useStore';
 
 export const useWebSocket = () => {
-  const wsRef = useRef<WebSocket | null>(null)
-  const addDetection = useStore((state) => state.addDetection)
-  const addNotification = useStore((state) => state.addNotification)
-  const setPLCStatus = useStore((state) => state.setPLCStatus)
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const store = useStore();
 
-  const connect = useCallback(() => {
-    const clientId = `client-${Date.now()}`
-    const ws = new WebSocket(`${WS_URL}/ws/${clientId}`)
+  const connect = () => {
+    const wsUrl = import.meta.env.VITE_WS_URL || 'wss://barrel-guard-ai-production.up.railway.app';
+    const clientId = `client-${Date.now()}`;
+    const url = `${wsUrl}/ws/${clientId}`;
+
+    console.log(`🔌 Connecting to WebSocket: ${url}`);
+
+    const ws = new WebSocket(url);
+    wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('✅ WebSocket connected')
-    }
+      console.log('✅ WebSocket connected');
+    };
 
     ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data)
+        const message = JSON.parse(event.data);
+        const { type, payload } = message;
 
-        if (data.type === 'new_detection') {
-          addDetection(data.payload)
+        if (type === 'new_detection') {
+          store.addDetection(payload);
+        } else if (type === 'notification') {
+          store.addNotification(payload);
+        } else if (type === 'plc_stop' || type === 'plc_resume' || type === 'plc_status') {
+          store.setPLCStatus(payload);
         }
-
-        if (data.type === 'notification') {
-          addNotification(data.payload)
-        }
-
-        if (
-          data.type === 'plc_status' ||
-          data.type === 'plc_stop' ||
-          data.type === 'plc_resume'
-        ) {
-          setPLCStatus(data.payload)
-        }
-
       } catch (e) {
-        console.error('❌ WS parse error', e)
+        console.error('WebSocket message parse error:', e);
       }
-    }
+    };
+
+    ws.onerror = () => {
+      console.error('❌ WebSocket error');
+    };
 
     ws.onclose = () => {
-      console.log('🔄 WebSocket disconnected — reconnecting in 3s...')
-      setTimeout(connect, 3000)
-    }
-
-    ws.onerror = (error) => {
-      console.error('❌ WebSocket error', error)
-      ws.close()
-    }
-
-    wsRef.current = ws
-  }, [addDetection, addNotification, setPLCStatus])
+      console.log('🔄 WebSocket disconnected — reconnecting in 3s...');
+      reconnectRef.current = setTimeout(connect, 3000);
+    };
+  };
 
   useEffect(() => {
-    connect()
+    connect();
     return () => {
-      wsRef.current?.close()
-    }
-  }, [connect])
-
-  return wsRef
-}
+      if (reconnectRef.current) clearTimeout(reconnectRef.current);
+      if (wsRef.current) wsRef.current.close();
+    };
+  }, []);
+};
