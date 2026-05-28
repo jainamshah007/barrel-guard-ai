@@ -1,5 +1,3 @@
-Make sure API calls use the correct base URL:
- 
 /*
  * BARREL-GUARD AI — Foreign Object Detection Platform
  * Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
