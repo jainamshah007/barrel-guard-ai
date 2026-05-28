@@ -3,11 +3,10 @@
 // Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
 // =============================================================
 
-import { useStore } from '../store/useStore'
-import AlertBadge from '../components/Common/AlertBadge'
+import { useStore } from '../store/useStore';
 
 export default function Notifications() {
-  const notifications = useStore((s) => s.notifications)
+  const notifications = useStore((s) => s.notifications);
 
   return (
     <div className="space-y-6">
@@ -23,22 +22,30 @@ export default function Notifications() {
         ) : (
           <div className="divide-y divide-gray-100">
             {notifications.map((n, i) => (
-              <div key={i}
-                className="px-5 py-4 hover:bg-gray-50 transition-colors">
+              <div
+                key={i}
+                className="px-5 py-4 hover:bg-gray-50 transition-colors"
+              >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3">
-                    <AlertBadge severity={n.severity} />
+                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                      n.read
+                        ? 'bg-gray-100 text-gray-500'
+                        : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      {n.read ? 'READ' : 'NEW'}
+                    </span>
                     <div>
                       <div className="text-sm font-semibold text-gray-800">
                         {n.message}
                       </div>
                       <div className="text-xs text-gray-400 mt-1">
-                        Channel: {n.channel} | Line: {n.line_id}
+                        {n.object_class.replace(/_/g, ' ').toUpperCase()} | {n.camera_name}
                       </div>
                     </div>
                   </div>
                   <div className="text-xs text-gray-300 whitespace-nowrap">
-                    {new Date(n.sent_at).toLocaleTimeString()}
+                    {new Date(n.timestamp).toLocaleTimeString()}
                   </div>
                 </div>
               </div>
@@ -47,5 +54,5 @@ export default function Notifications() {
         )}
       </div>
     </div>
-  )
+  );
 }
