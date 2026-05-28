@@ -35,7 +35,7 @@ export const useWebSocket = () => {
         } else if (type === 'notification') {
           store.addNotification(payload);
         } else if (type === 'plc_stop' || type === 'plc_resume' || type === 'plc_status') {
-          store.setPLCStatus(payload);
+          store.setPLCStatus(type, payload);
         }
       } catch (e) {
         console.error('WebSocket message parse error:', e);

@@ -49,7 +49,7 @@ export default function CameraFeed({ cameraId, name, lineId }: CameraFeedProps) 
         </span>
         <span className="text-xs text-gray-400">
           {latest
-            ? new Date(latest.created_at).toLocaleTimeString()
+            ? new Date(latest.timestamp).toLocaleTimeString()
             : 'Monitoring...'}
         </span>
       </div>

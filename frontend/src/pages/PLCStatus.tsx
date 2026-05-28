@@ -47,7 +47,7 @@ export default function PLCStatus() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {['LINE_A', 'LINE_B'].map((lineId) => {
           const state = plcStatus[lineId]
-          const isRunning = !state || state.status === 'RUNNING'
+          const isRunning = !state || state.status === 'running'
 
           return (
             <div key={lineId}
