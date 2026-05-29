@@ -3,7 +3,7 @@
 // Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
 // =============================================================
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import axios from 'axios'
 import { useStore } from '../store/useStore'
 import KPICard from '../components/Common/KPICard'
@@ -21,13 +21,18 @@ const OBJECT_SYMBOLS: Record<string, string> = {
 }
 
 export default function Overview() {
-  const detections   = useStore((s) => s.detections)
-  const plcStatus    = useStore((s) => s.plcStatus)
-  const addDetection = useStore((s) => s.addDetection)
-  const [loading, setLoading] = useState(false)
+  const detections      = useStore((s) => s.detections)
+  const plcStatus       = useStore((s) => s.plcStatus)
+  const addDetection    = useStore((s) => s.addDetection)
+  const setAllPLCStatus = useStore((s) => s.setAllPLCStatus)
+  const [loading, setLoading]     = useState(false)
+  const [lastFetch, setLastFetch] = useState('')
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const fetchDetections = () => {
+  const fetchAll = useCallback(() => {
     setLoading(true)
+
+    // Fetch detections
     axios.get(`${API_BASE}/api/v1/detections/recent`)
       .then((res) => {
         if (Array.isArray(res.data)) {
@@ -36,29 +41,38 @@ export default function Overview() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }
 
-  // Fetch on first mount
+    // Fetch PLC status
+    axios.get(`${API_BASE}/api/v1/plc/status`)
+      .then((res) => {
+        if (res.data?.lines) setAllPLCStatus(res.data.lines)
+      })
+      .catch(() => {})
+
+    setLastFetch(new Date().toLocaleTimeString())
+  }, [addDetection, setAllPLCStatus])
+
+  // Fetch on mount
   useEffect(() => {
-    fetchDetections()
-  }, [])
+    fetchAll()
+  }, [fetchAll])
 
-  // Re-fetch every time user comes back to this tab
+  // Auto-refresh every 10 seconds
+  useEffect(() => {
+    timerRef.current = setInterval(fetchAll, 10000)
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [fetchAll])
+
+  // Re-fetch when user returns to tab
   useEffect(() => {
     const onVisible = () => {
-      if (document.visibilityState === 'visible') {
-        fetchDetections()
-      }
+      if (document.visibilityState === 'visible') fetchAll()
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [])
-
-  // Also auto-refresh every 15 seconds
-  useEffect(() => {
-    const interval = setInterval(fetchDetections, 15000)
-    return () => clearInterval(interval)
-  }, [])
+  }, [fetchAll])
 
   const stoppedLines = Object.values(plcStatus).filter(
     (l) => l.status === 'stopped'
@@ -72,14 +86,22 @@ export default function Overview() {
         <h1 className="text-2xl font-bold text-gray-800">
           📊 System Overview
         </h1>
-        <button
-          onClick={fetchDetections}
-          className="text-xs px-3 py-1.5 rounded-lg bg-blue-50
-            text-blue-600 border border-blue-200 hover:bg-blue-100
-            transition-colors font-medium"
-        >
-          🔄 Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          {lastFetch && (
+            <span className="text-xs text-gray-400">
+              Updated: {lastFetch}
+            </span>
+          )}
+          <button
+            onClick={fetchAll}
+            disabled={loading}
+            className="text-xs px-3 py-1.5 rounded-lg bg-blue-50
+              text-blue-600 border border-blue-200 hover:bg-blue-100
+              disabled:opacity-50 transition-colors font-medium"
+          >
+            {loading ? '⏳' : '🔄 Refresh'}
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -114,7 +136,7 @@ export default function Overview() {
         />
       </div>
 
-      {/* PLC Status — always show both lines */}
+      {/* PLC Status */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h2 className="text-base font-semibold text-gray-700 mb-4">
           ⚙️ Conveyor Line Status
@@ -151,8 +173,10 @@ export default function Overview() {
           🔍 Recent Detections
         </h2>
 
-        {loading && (
-          <div className="text-sm text-gray-400">Loading detections...</div>
+        {loading && detections.length === 0 && (
+          <div className="text-sm text-gray-400 animate-pulse">
+            ⏳ Loading detections...
+          </div>
         )}
 
         {!loading && detections.length === 0 && (
@@ -161,7 +185,7 @@ export default function Overview() {
           </div>
         )}
 
-        {!loading && detections.length > 0 && (
+        {detections.length > 0 && (
           <div className="space-y-2">
             {detections.slice(0, 8).map((d, i) => (
               <div

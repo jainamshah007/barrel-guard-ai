@@ -3,7 +3,7 @@
 // Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
 // =============================================================
 
-import { useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import axios from 'axios'
 import { useStore } from '../store/useStore'
 import { API_BASE } from '../App'
@@ -14,9 +14,28 @@ const LINES = [
 ]
 
 export default function PLCStatus() {
-  const plcStatus = useStore((s) => s.plcStatus)
+  const plcStatus      = useStore((s) => s.plcStatus)
+  const setAllPLCStatus = useStore((s) => s.setAllPLCStatus)
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError]     = useState<string | null>(null)
+
+  // Fetch real PLC status from backend
+  const fetchPLCStatus = useCallback(() => {
+    axios.get(`${API_BASE}/api/v1/plc/status`)
+      .then((res) => {
+        if (res.data?.lines) {
+          setAllPLCStatus(res.data.lines)
+        }
+      })
+      .catch(() => {})
+  }, [setAllPLCStatus])
+
+  // Fetch on mount and every 5 seconds
+  useEffect(() => {
+    fetchPLCStatus()
+    const interval = setInterval(fetchPLCStatus, 5000)
+    return () => clearInterval(interval)
+  }, [fetchPLCStatus])
 
   const handleStop = async (lineId: string) => {
     setLoading(lineId)
@@ -25,10 +44,14 @@ export default function PLCStatus() {
       await axios.post(`${API_BASE}/api/v1/plc/stop`, {
         line_id: lineId,
         operator: 'OPERATOR',
-        notes: 'Manual stop from dashboard'
+        notes: 'Manual stop from dashboard',
       })
+      // Immediately re-fetch to reflect new state
+      await fetchPLCStatus()
     } catch (e: any) {
-      setError(`Stop failed: ${e?.response?.status} ${e?.response?.data?.detail ?? ''}`)
+      setError(
+        `Stop failed: ${e?.response?.status ?? ''} ${e?.response?.data?.detail ?? 'Unknown error'}`
+      )
     }
     setLoading(null)
   }
@@ -39,10 +62,14 @@ export default function PLCStatus() {
     try {
       await axios.post(`${API_BASE}/api/v1/plc/resume`, {
         line_id: lineId,
-        operator: 'OPERATOR'
+        operator: 'OPERATOR',
       })
+      // Immediately re-fetch to reflect new state
+      await fetchPLCStatus()
     } catch (e: any) {
-      setError(`Resume failed: ${e?.response?.status} ${e?.response?.data?.detail ?? ''}`)
+      setError(
+        `Resume failed: ${e?.response?.status ?? ''} ${e?.response?.data?.detail ?? 'Unknown error'}`
+      )
     }
     setLoading(null)
   }
@@ -64,10 +91,11 @@ export default function PLCStatus() {
           const isRunning = !state || state.status === 'running'
 
           return (
-            <div key={lineId}
+            <div
+              key={lineId}
               className="bg-white rounded-xl border border-gray-200
-                shadow-sm p-6 space-y-4">
-
+                shadow-sm p-6 space-y-4"
+            >
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-gray-800">{label}</h2>
                 <span className={`px-3 py-1 rounded-full text-sm font-bold ${
