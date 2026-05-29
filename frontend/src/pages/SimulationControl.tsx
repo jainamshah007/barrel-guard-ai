@@ -5,6 +5,7 @@
 
 import { useState } from 'react'
 import axios from 'axios'
+import { API_BASE } from '../App'
 
 const OBJECT_CLASSES = [
   'hard_helmet', 'glove', 'face_mask',
@@ -12,26 +13,26 @@ const OBJECT_CLASSES = [
 ]
 
 export default function SimulationControl() {
-  const [autoMode, setAutoMode]       = useState(true)
-  const [cameraId, setCameraId]       = useState(1)
-  const [objClass, setObjClass]       = useState(OBJECT_CLASSES[0])
-  const [status, setStatus]           = useState('')
+  const [autoMode, setAutoMode] = useState(true)
+  const [cameraId, setCameraId] = useState(0)
+  const [objClass, setObjClass] = useState(OBJECT_CLASSES[0])
+  const [status, setStatus]     = useState('')
 
   const toggleAuto = async () => {
     try {
-      await axios.post('/api/v1/simulation/config', {
+      await axios.post(`${API_BASE}/api/v1/simulation/config`, {
         auto_mode: !autoMode
       })
       setAutoMode(!autoMode)
       setStatus(`Auto mode ${!autoMode ? 'enabled' : 'disabled'}`)
     } catch {
-      setStatus('Error updating config')
+      setStatus('❌ Error updating config')
     }
   }
 
   const injectManual = async () => {
     try {
-      await axios.post('/api/v1/simulation/inject', {
+      await axios.post(`${API_BASE}/api/v1/simulation/inject`, {
         camera_id: cameraId,
         object_class: objClass
       })
@@ -48,8 +49,7 @@ export default function SimulationControl() {
       </h1>
 
       {/* Auto Mode */}
-      <div className="bg-white rounded-xl border border-gray-200
-        shadow-sm p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
         <h2 className="text-base font-semibold text-gray-700 mb-4">
           Auto Simulation Mode
         </h2>
@@ -74,8 +74,7 @@ export default function SimulationControl() {
       </div>
 
       {/* Manual Inject */}
-      <div className="bg-white rounded-xl border border-gray-200
-        shadow-sm p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
         <h2 className="text-base font-semibold text-gray-700 mb-4">
           Manual Object Injection
         </h2>
@@ -91,8 +90,8 @@ export default function SimulationControl() {
                 px-3 py-2 text-sm focus:outline-none focus:ring-2
                 focus:ring-blue-300"
             >
-              <option value={1}>Camera 1 – Line A</option>
-              <option value={2}>Camera 2 – Line B</option>
+              <option value={0}>Camera 1 – Line A</option>
+              <option value={1}>Camera 2 – Line B</option>
             </select>
           </div>
 

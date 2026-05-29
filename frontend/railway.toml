@@ -6,7 +6,7 @@ builder = "RAILPACK"
 buildCommand ="npm run build"
 
 [deploy]
-startCommand = "npx serve -s dist -l $PORT"
+startCommand = "npx serve -s dist --listen $PORT"
 healthcheckPath = "/"
 healthcheckTimeout = 60
 restartPolicyType = "ON_FAILURE"

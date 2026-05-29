@@ -3,16 +3,32 @@
 // Copyright (c) 2024 Jainam K Shah. All Rights Reserved.
 // =============================================================
 
-import { useStore } from '../store/useStore';
-import KPICard from '../components/Common/KPICard';
+import { useEffect, useState } from 'react'
+import axios from 'axios'
+import { useStore } from '../store/useStore'
+import KPICard from '../components/Common/KPICard'
+import { API_BASE } from '../App'
 
 export default function Overview() {
-  const detections = useStore((s) => s.detections);
-  const plcStatus  = useStore((s) => s.plcStatus);
+  const detections = useStore((s) => s.detections)
+  const plcStatus  = useStore((s) => s.plcStatus)
+  const addDetection = useStore((s) => s.addDetection)
+  const [fetched, setFetched] = useState<any[]>([])
+
+  useEffect(() => {
+    axios.get(`${API_BASE}/api/v1/detections/recent`)
+      .then((res) => {
+        setFetched(res.data)
+        res.data.forEach((d: any) => addDetection(d))
+      })
+      .catch(() => {})
+  }, [])
 
   const stoppedLines = Object.values(plcStatus).filter(
     (l) => l.status === 'stopped'
-  ).length;
+  ).length
+
+  const displayDetections = detections.length > 0 ? detections : fetched
 
   return (
     <div className="space-y-6">
@@ -22,14 +38,14 @@ export default function Overview() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
           title="Total Detections"
-          value={detections.length}
+          value={displayDetections.length}
           subtitle="Since session start"
           color="#2563eb"
           icon="🔍"
         />
         <KPICard
           title="Foreign Objects"
-          value={detections.length}
+          value={displayDetections.length}
           subtitle="All detections are alerts"
           color="#dc2626"
           icon="🚨"
@@ -84,13 +100,13 @@ export default function Overview() {
         <h2 className="text-base font-semibold text-gray-700 mb-4">
           🔍 Recent Detections
         </h2>
-        {detections.length === 0 ? (
+        {displayDetections.length === 0 ? (
           <div className="text-sm text-gray-400">
             No detections yet. Simulator is running...
           </div>
         ) : (
           <div className="space-y-2">
-            {detections.slice(0, 8).map((d) => (
+            {displayDetections.slice(0, 8).map((d) => (
               <div
                 key={d.id}
                 className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:bg-gray-50"
@@ -115,5 +131,5 @@ export default function Overview() {
         )}
       </div>
     </div>
-  );
+  )
 }

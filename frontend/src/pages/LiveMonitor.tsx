@@ -6,8 +6,8 @@
 import CameraFeed from '../components/Camera/CameraFeed'
 
 const CAMERAS = [
-  { id: 1, name: 'Camera 1 – Line A', lineId: 'LINE_A' },
-  { id: 2, name: 'Camera 2 – Line B', lineId: 'LINE_B' }
+  { id: 0, name: 'Camera 1 – Line A', lineId: 'LINE_A' },
+  { id: 1, name: 'Camera 2 – Line B', lineId: 'LINE_B' }
 ]
 
 export default function LiveMonitor() {
