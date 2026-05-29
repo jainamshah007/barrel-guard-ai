@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import axios from 'axios'
 import { useStore } from '../store/useStore'
+import { API_BASE } from '../App'
 
 export default function PLCStatus() {
   const plcStatus = useStore((s) => s.plcStatus)
@@ -14,7 +15,7 @@ export default function PLCStatus() {
   const handleStop = async (lineId: string) => {
     setLoading(lineId)
     try {
-      await axios.post('/api/v1/plc/stop', {
+      await axios.post(`${API_BASE}/api/v1/plc/stop`, {
         line_id: lineId,
         operator: 'OPERATOR',
         notes: 'Manual stop from dashboard'
@@ -28,7 +29,7 @@ export default function PLCStatus() {
   const handleResume = async (lineId: string) => {
     setLoading(lineId)
     try {
-      await axios.post('/api/v1/plc/resume', {
+      await axios.post(`${API_BASE}/api/v1/plc/resume`, {
         line_id: lineId,
         operator: 'OPERATOR'
       })
@@ -62,7 +63,7 @@ export default function PLCStatus() {
                     ? 'bg-green-100 text-green-700'
                     : 'bg-red-100 text-red-700'
                   }`}>
-                  {state?.status || 'RUNNING'}
+                  {isRunning ? 'RUNNING' : 'STOPPED'}
                 </span>
               </div>
 
