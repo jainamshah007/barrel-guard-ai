@@ -12,6 +12,17 @@ interface CameraFeedProps {
   lineId: string
 }
 
+const OBJECT_SYMBOLS: Record<string, string> = {
+  hard_helmet: '⛑️',
+  glove:       '🧤',
+  face_mask:   '😷',
+  key:         '🔑',
+  wallet:      '👛',
+  tool:        '🔧',
+  cloth:       '🧣',
+  bottle:      '🍶',
+}
+
 export default function CameraFeed({ cameraId, name, lineId }: CameraFeedProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const frameRef  = useRef(0)
@@ -24,6 +35,7 @@ export default function CameraFeed({ cameraId, name, lineId }: CameraFeedProps) 
 
   const isRunning = !plcStatus[lineId] || plcStatus[lineId].status === 'running'
   const latest    = detections[0]
+  const symbol    = latest ? (OBJECT_SYMBOLS[latest.object_class] ?? '⚠️') : null
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -64,10 +76,10 @@ export default function CameraFeed({ cameraId, name, lineId }: CameraFeedProps) 
       ctx.stroke()
 
       // Barrel
-      const barrelX = W * 0.4
-      const barrelY = H * 0.3
-      const barrelW = 60
-      const barrelH = 70
+      const barrelX = W * 0.38
+      const barrelY = H * 0.25
+      const barrelW = 64
+      const barrelH = 72
 
       // Barrel body
       ctx.fillStyle = latest ? '#dc2626' : '#2563eb'
@@ -80,30 +92,30 @@ export default function CameraFeed({ cameraId, name, lineId }: CameraFeedProps) 
       ctx.lineWidth = 3
       for (let i = 1; i <= 3; i++) {
         ctx.beginPath()
-        ctx.moveTo(barrelX, barrelY + (barrelH / 4) * i)
-        ctx.lineTo(barrelX + barrelW, barrelY + (barrelH / 4) * i)
+        ctx.moveTo(barrelX + 4, barrelY + (barrelH / 4) * i)
+        ctx.lineTo(barrelX + barrelW - 4, barrelY + (barrelH / 4) * i)
         ctx.stroke()
       }
 
-      // Barrel label
-      ctx.fillStyle = '#ffffff'
-      ctx.font = 'bold 10px sans-serif'
-      ctx.textAlign = 'center'
-      ctx.fillText('BARREL', barrelX + barrelW / 2, barrelY + barrelH / 2)
-
-      // Object inside barrel if detected
-      if (latest) {
-        ctx.fillStyle = '#fbbf24'
+      // Object symbol inside barrel
+      if (symbol) {
+        ctx.font = '22px serif'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(symbol, barrelX + barrelW / 2, barrelY + barrelH / 2)
+      } else {
+        // Empty barrel label
+        ctx.fillStyle = 'rgba(255,255,255,0.7)'
         ctx.font = 'bold 9px sans-serif'
-        ctx.fillText(
-          latest.object_class.replace(/_/g, ' ').toUpperCase(),
-          barrelX + barrelW / 2,
-          barrelY + barrelH / 2 + 14
-        )
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText('EMPTY', barrelX + barrelW / 2, barrelY + barrelH / 2)
+      }
 
-        // Alert border flash
+      // Alert border flash when object detected
+      if (latest) {
         ctx.strokeStyle = '#ef4444'
-        ctx.lineWidth = 3
+        ctx.lineWidth = 4
         ctx.strokeRect(2, 2, W - 4, H - 4)
       }
 
@@ -115,21 +127,19 @@ export default function CameraFeed({ cameraId, name, lineId }: CameraFeedProps) 
         ctx.fill()
       }
 
-      // Status text
+      // Status text top-left
       ctx.fillStyle = isRunning ? '#4ade80' : '#f87171'
       ctx.font = 'bold 11px sans-serif'
       ctx.textAlign = 'left'
-      ctx.fillText(
-        isRunning ? '● RUNNING' : '■ STOPPED',
-        8, 16
-      )
+      ctx.textBaseline = 'top'
+      ctx.fillText(isRunning ? '● RUNNING' : '■ STOPPED', 8, 8)
 
       frameRef.current = requestAnimationFrame(draw)
     }
 
     frameRef.current = requestAnimationFrame(draw)
     return () => cancelAnimationFrame(frameRef.current)
-  }, [isRunning, latest])
+  }, [isRunning, latest, symbol])
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -154,11 +164,13 @@ export default function CameraFeed({ cameraId, name, lineId }: CameraFeedProps) 
         className="w-full"
       />
 
-      {/* Detection overlay */}
+      {/* Detection bar */}
       {latest && (
         <div className="bg-red-600 text-white text-xs px-3 py-1.5
           flex items-center justify-between">
-          <span>⚠️ {latest.object_class.replace(/_/g, ' ').toUpperCase()} — Barrel {latest.barrel_id}</span>
+          <span>
+            {symbol} {latest.object_class.replace(/_/g, ' ').toUpperCase()} — Barrel {latest.barrel_id}
+          </span>
           <span>{(latest.confidence * 100).toFixed(0)}% conf</span>
         </div>
       )}
@@ -169,7 +181,7 @@ export default function CameraFeed({ cameraId, name, lineId }: CameraFeedProps) 
         <span className={`text-xs font-medium ${
           latest ? 'text-red-600' : 'text-green-600'
         }`}>
-          {latest ? '🔴 Object Detected' : '🟢 Clear'}
+          {latest ? `🔴 ${symbol} Detected` : '🟢 Clear'}
         </span>
         <span className="text-xs text-gray-400">
           {latest

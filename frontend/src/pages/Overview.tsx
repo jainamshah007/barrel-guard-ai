@@ -9,26 +9,38 @@ import { useStore } from '../store/useStore'
 import KPICard from '../components/Common/KPICard'
 import { API_BASE } from '../App'
 
+const OBJECT_SYMBOLS: Record<string, string> = {
+  hard_helmet: '⛑️',
+  glove:       '🧤',
+  face_mask:   '😷',
+  key:         '🔑',
+  wallet:      '👛',
+  tool:        '🔧',
+  cloth:       '🧣',
+  bottle:      '🍶',
+}
+
 export default function Overview() {
-  const detections = useStore((s) => s.detections)
-  const plcStatus  = useStore((s) => s.plcStatus)
+  const detections   = useStore((s) => s.detections)
+  const plcStatus    = useStore((s) => s.plcStatus)
   const addDetection = useStore((s) => s.addDetection)
-  const [fetched, setFetched] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
+    setLoading(true)
     axios.get(`${API_BASE}/api/v1/detections/recent`)
       .then((res) => {
-        setFetched(res.data)
-        res.data.forEach((d: any) => addDetection(d))
+        if (Array.isArray(res.data)) {
+          res.data.forEach((d: any) => addDetection(d))
+        }
       })
       .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
 
   const stoppedLines = Object.values(plcStatus).filter(
     (l) => l.status === 'stopped'
   ).length
-
-  const displayDetections = detections.length > 0 ? detections : fetched
 
   return (
     <div className="space-y-6">
@@ -38,14 +50,14 @@ export default function Overview() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
           title="Total Detections"
-          value={displayDetections.length}
+          value={detections.length}
           subtitle="Since session start"
           color="#2563eb"
           icon="🔍"
         />
         <KPICard
           title="Foreign Objects"
-          value={displayDetections.length}
+          value={detections.length}
           subtitle="All detections are alerts"
           color="#dc2626"
           icon="🚨"
@@ -75,7 +87,8 @@ export default function Overview() {
           {Object.entries(plcStatus).map(([lineId, state]) => (
             <div
               key={lineId}
-              className="flex items-center justify-between p-4 rounded-lg border border-gray-100 bg-gray-50"
+              className="flex items-center justify-between p-4
+                rounded-lg border border-gray-100 bg-gray-50"
             >
               <span className="font-medium text-gray-700">{lineId}</span>
               <span className={`px-3 py-1 rounded-full text-xs font-bold ${
@@ -100,30 +113,45 @@ export default function Overview() {
         <h2 className="text-base font-semibold text-gray-700 mb-4">
           🔍 Recent Detections
         </h2>
-        {displayDetections.length === 0 ? (
+
+        {loading && (
+          <div className="text-sm text-gray-400">Loading detections...</div>
+        )}
+
+        {!loading && detections.length === 0 && (
           <div className="text-sm text-gray-400">
             No detections yet. Simulator is running...
           </div>
-        ) : (
+        )}
+
+        {!loading && detections.length > 0 && (
           <div className="space-y-2">
-            {displayDetections.slice(0, 8).map((d) => (
+            {detections.slice(0, 8).map((d) => (
               <div
                 key={d.id}
-                className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:bg-gray-50"
+                className="flex items-center justify-between p-3
+                  rounded-lg border border-gray-100 hover:bg-gray-50"
               >
                 <div className="flex items-center gap-3">
-                  <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
-                    ⚠️
+                  <span className="text-xl">
+                    {OBJECT_SYMBOLS[d.object_class] ?? '⚠️'}
                   </span>
-                  <span className="text-sm font-medium text-gray-700">
-                    {d.object_class.replace(/_/g, ' ').toUpperCase()}
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    {d.line_id} — Barrel {d.barrel_id}
-                  </span>
+                  <div>
+                    <div className="text-sm font-medium text-gray-700">
+                      {d.object_class.replace(/_/g, ' ').toUpperCase()}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {d.camera_name} — Barrel {d.barrel_id} — {d.line_id}
+                    </div>
+                  </div>
                 </div>
-                <div className="text-xs text-gray-400">
-                  {(d.confidence * 100).toFixed(0)}% confidence
+                <div className="text-right">
+                  <div className="text-xs font-semibold text-red-600">
+                    {(d.confidence * 100).toFixed(0)}%
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {new Date(d.timestamp).toLocaleTimeString()}
+                  </div>
                 </div>
               </div>
             ))}
