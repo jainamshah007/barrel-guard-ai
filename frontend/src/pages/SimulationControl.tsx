@@ -5,6 +5,7 @@
 
 import { useState } from 'react'
 import axios from 'axios'
+import { useStore } from '../store/useStore'
 import { API_BASE } from '../App'
 
 const OBJECT_CLASSES = [
@@ -13,18 +14,20 @@ const OBJECT_CLASSES = [
 ]
 
 export default function SimulationControl() {
-  const [autoMode, setAutoMode] = useState(true)
+  const autoMode    = useStore((s) => s.autoMode)
+  const setAutoMode = useStore((s) => s.setAutoMode)
   const [cameraId, setCameraId] = useState(0)
   const [objClass, setObjClass] = useState(OBJECT_CLASSES[0])
   const [status, setStatus]     = useState('')
 
   const toggleAuto = async () => {
+    const next = !autoMode
     try {
       await axios.post(`${API_BASE}/api/v1/simulation/config`, {
-        auto_mode: !autoMode
+        auto_mode: next
       })
-      setAutoMode(!autoMode)
-      setStatus(`Auto mode ${!autoMode ? 'enabled' : 'disabled'}`)
+      setAutoMode(next)
+      setStatus(`Auto mode ${next ? 'enabled ✅' : 'disabled ⏸️'}`)
     } catch {
       setStatus('❌ Error updating config')
     }

@@ -36,16 +36,19 @@ interface StoreState {
   detections: Detection[];
   notifications: NotificationItem[];
   plcStatus: Record<string, PLCLineStatus>;
+  autoMode: boolean;
   addDetection: (d: Detection) => void;
   addNotification: (n: NotificationItem) => void;
   setPLCStatus: (lineId: string, status: PLCLineStatus) => void;
   markAllRead: () => void;
+  setAutoMode: (val: boolean) => void;
 }
 
 export const useStore = create<StoreState>((set) => ({
   detections: [],
   notifications: [],
   plcStatus: {},
+  autoMode: true,
 
   addDetection: (d) =>
     set((state) => ({
@@ -66,4 +69,7 @@ export const useStore = create<StoreState>((set) => ({
     set((state) => ({
       notifications: state.notifications.map((n) => ({ ...n, read: true })),
     })),
+
+  setAutoMode: (val) =>
+    set({ autoMode: val }),
 }));
