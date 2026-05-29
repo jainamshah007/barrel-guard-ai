@@ -10,14 +10,14 @@ import KPICard from '../components/Common/KPICard'
 import { API_BASE } from '../App'
 
 const OBJECT_SYMBOLS: Record<string, string> = {
-  hard_helmet: '⛑️',
-  glove:       '🧤',
-  face_mask:   '😷',
-  key:         '🔑',
-  wallet:      '👛',
-  tool:        '🔧',
-  cloth:       '🧣',
-  bottle:      '🍶',
+  hard_helmet : '⛑️',
+  glove       : '🧤',
+  face_mask   : '😷',
+  key         : '🔑',
+  wallet      : '👛',
+  tool        : '🔧',
+  cloth       : '🧣',
+  bottle      : '🍶',
 }
 
 export default function Overview() {
@@ -26,7 +26,7 @@ export default function Overview() {
   const addDetection = useStore((s) => s.addDetection)
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
+  const fetchDetections = () => {
     setLoading(true)
     axios.get(`${API_BASE}/api/v1/detections/recent`)
       .then((res) => {
@@ -36,6 +36,28 @@ export default function Overview() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
+  }
+
+  // Fetch on first mount
+  useEffect(() => {
+    fetchDetections()
+  }, [])
+
+  // Re-fetch every time user comes back to this tab
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        fetchDetections()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
+  // Also auto-refresh every 15 seconds
+  useEffect(() => {
+    const interval = setInterval(fetchDetections, 15000)
+    return () => clearInterval(interval)
   }, [])
 
   const stoppedLines = Object.values(plcStatus).filter(
@@ -44,7 +66,21 @@ export default function Overview() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">📊 System Overview</h1>
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-800">
+          📊 System Overview
+        </h1>
+        <button
+          onClick={fetchDetections}
+          className="text-xs px-3 py-1.5 rounded-lg bg-blue-50
+            text-blue-600 border border-blue-200 hover:bg-blue-100
+            transition-colors font-medium"
+        >
+          🔄 Refresh
+        </button>
+      </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -78,33 +114,34 @@ export default function Overview() {
         />
       </div>
 
-      {/* PLC Status */}
+      {/* PLC Status — always show both lines */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h2 className="text-base font-semibold text-gray-700 mb-4">
           ⚙️ Conveyor Line Status
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {Object.entries(plcStatus).map(([lineId, state]) => (
-            <div
-              key={lineId}
-              className="flex items-center justify-between p-4
-                rounded-lg border border-gray-100 bg-gray-50"
-            >
-              <span className="font-medium text-gray-700">{lineId}</span>
-              <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                state.status === 'running'
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-red-100 text-red-700'
-              }`}>
-                {state.status.toUpperCase()}
-              </span>
-            </div>
-          ))}
-          {Object.keys(plcStatus).length === 0 && (
-            <div className="text-sm text-gray-400 col-span-2">
-              Waiting for PLC status...
-            </div>
-          )}
+          {['line_a', 'line_b'].map((lineId) => {
+            const state     = plcStatus[lineId]
+            const isRunning = !state || state.status === 'running'
+            return (
+              <div
+                key={lineId}
+                className="flex items-center justify-between p-4
+                  rounded-lg border border-gray-100 bg-gray-50"
+              >
+                <span className="font-medium text-gray-700">
+                  {lineId === 'line_a' ? '🔵 Line A' : '🟣 Line B'}
+                </span>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                  isRunning
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-700'
+                }`}>
+                  {isRunning ? '🟢 RUNNING' : '🔴 STOPPED'}
+                </span>
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -126,9 +163,9 @@ export default function Overview() {
 
         {!loading && detections.length > 0 && (
           <div className="space-y-2">
-            {detections.slice(0, 8).map((d) => (
+            {detections.slice(0, 8).map((d, i) => (
               <div
-                key={d.id}
+                key={d.id ?? i}
                 className="flex items-center justify-between p-3
                   rounded-lg border border-gray-100 hover:bg-gray-50"
               >
@@ -158,6 +195,7 @@ export default function Overview() {
           </div>
         )}
       </div>
+
     </div>
   )
 }
