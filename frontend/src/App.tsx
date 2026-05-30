@@ -4,6 +4,7 @@
  */
 
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Analytics as VercelAnalytics } from '@vercel/analytics/react';
 import { useWebSocket } from './hooks/useWebSocket';
 import Layout from './components/Layout';
 import Overview from './pages/Overview';
@@ -40,6 +41,7 @@ export default function App() {
   return (
     <Router>
       <AppContent />
+      <VercelAnalytics />
     </Router>
   );
 }
